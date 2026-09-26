@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  flight-mcp-server:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8080
+      - MCP_ALLOWED_HOSTS=*
+      - MCP_AUTH_ENABLED=true
+      - MCP_STATELESS_HTTP=true
+      - DB_PATH=/app/flight_booking.db
+      - RATE_LIMIT_CAPACITY=60
+      - RATE_LIMIT_REFILL_PER_SEC=1.0
+    volumes:
+      - flight_db:/app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').getcode() == 200 else 1)"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  flight_db:

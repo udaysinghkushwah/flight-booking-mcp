@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flight-booking-mcp
+  labels:
+    app: flight-booking-mcp
+    environment: production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: flight-booking-mcp
+  template:
+    metadata:
+      labels:
+        app: flight-booking-mcp
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: mcp-server
+          image: 582377793411.dkr.ecr.us-east-1.amazonaws.com/my-app:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: flight-mcp-config
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flight-booking-mcp-svc
+spec:
+  selector:
+    app: flight-booking-mcp
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
