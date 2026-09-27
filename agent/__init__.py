@@ -1,6 +1,5 @@
 """Production MCP Autonomous Flight Agent Package."""
 
-from agent.cli import main
 from agent.client import MCPClient
 from agent.models import (
     AgentStep,

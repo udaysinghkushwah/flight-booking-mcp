@@ -203,20 +203,38 @@ Run the autonomous agent directly against our live AWS deployment:
 # Activate environment
 source .venv/bin/activate
 
-# 1. Run with built-in resilient cognitive engine (no paid API keys required):
-python3 run_agent.py --auto-approve
+# 1. Run Autonomous Flight Search & Booking (Local Ollama / llama3.2):
+# Pre-configured in .env:
+# OPENAI_BASE_URL=http://127.0.0.1:11434/v1
+# LLM_MODEL=llama3.2:latest
+python3 -m agent.cli --auto-approve --prompt "What flights are available from JFK to LHR on 2026-09-28 AND book the flight cheap"
 
-# 2. Run with OpenAI GPT-4o:
+# 2. Run with built-in resilient cognitive engine (no external LLM or API keys required):
+python3 run_agent.py --backend cognitive_builtin --auto-approve
+
+# 3. Run with OpenAI GPT-4o:
 export OPENAI_API_KEY="sk-..."
-python3 run_agent.py --backend openai --model gpt-4o
+python3 -m agent.cli --backend openai --model gpt-4o --auto-approve --prompt "What flights are available from JFK to LHR on 2026-09-28 AND book the flight cheap"
 
-# 3. Run with Anthropic Claude 3.5 Sonnet:
+# 4. Run with Anthropic Claude 3.5 Sonnet:
 export ANTHROPIC_API_KEY="sk-ant-..."
-python3 run_agent.py --backend anthropic --model claude-3-5-sonnet-20241022
+python3 -m agent.cli --backend anthropic --model claude-3-5-sonnet-20241022 --auto-approve
 
-# 4. Run interactive mode with Human-in-the-Loop Safety Gate:
-python3 run_agent.py --prompt "Find an economy flight from JFK to LHR on 2026-09-28 and book for Sarah Connor."
+# 5. Interactive Mode with Human-in-the-Loop Safety Gate:
+python3 -m agent.cli --prompt "Find an economy flight from JFK to LHR on 2026-09-28 and book for Dr. Robert McCall (passport: P88776655, email: robert.mccall@equalizer.org)."
 ```
+
+### CLI Configuration Options
+
+| Option | Default | Description |
+| :--- | :--- | :--- |
+| `--prompt` | Default flight booking prompt | Natural language passenger request (e.g. `"What flights are available from JFK to LHR on 2026-09-28 AND book the flight cheap"`) |
+| `--auto-approve` | `False` | Auto-approves mutating operations (`create_booking_tool`) without interactive operator prompts |
+| `--backend` | `auto` | LLM backend: `auto`, `openai`, `anthropic`, `openai_compatible`, or `cognitive_builtin` |
+| `--model` | From env / backend default | LLM model identifier (e.g. `llama3.2:latest`, `gpt-4o`, `claude-3-5-sonnet-20241022`) |
+| `--max-turns` | `10` | Maximum reasoning and tool execution turns per request |
+| `--url` | Live AWS ECS URL | Base URL of the live Model Context Protocol server |
+| `--api-key` | `flight-agent-key-secret` | Bearer token / API Key for MCP authentication |
 
 ---
 

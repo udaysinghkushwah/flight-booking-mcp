@@ -24,14 +24,17 @@ def create_provider(backend: str = "auto", model: Optional[str] = None) -> LLMPr
         else:
             resolved_backend = "cognitive_builtin"
 
+    env_model = os.getenv("LLM_MODEL") or os.getenv("OPENAI_MODEL")
+    target_model = model or env_model
+
     if resolved_backend == "openai":
-        return OpenAIProvider(model_name=model or "gpt-4o")
+        return OpenAIProvider(model_name=target_model or "gpt-4o")
     elif resolved_backend == "openai_compatible":
-        return OpenAIProvider(model_name=model or "llama3")
+        return OpenAIProvider(model_name=target_model or "llama3:8b")
     elif resolved_backend == "anthropic":
-        return AnthropicProvider(model_name=model or "claude-3-5-sonnet-20241022")
+        return AnthropicProvider(model_name=target_model or "claude-3-5-sonnet-20241022")
     elif resolved_backend == "cognitive_builtin":
-        return CognitiveEngineProvider(model_name=model or "flight-cognitive-v1")
+        return CognitiveEngineProvider(model_name=target_model or "flight-cognitive-v1")
     else:
         raise ValueError(f"Unknown LLM backend: '{backend}'. Supported: auto, openai, anthropic, cognitive_builtin")
 

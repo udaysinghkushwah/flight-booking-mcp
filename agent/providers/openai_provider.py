@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import ssl
 import urllib.error
 import urllib.request
+import uuid
 from typing import List, Optional
 
 from agent.models import AgentStep, Message, ToolCall, ToolDefinition
@@ -31,10 +33,12 @@ class OpenAIProvider(LLMProvider):
         model_name: str = "gpt-4o",
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
+        timeout: Optional[int] = None,
     ):
         super().__init__(model_name=model_name)
         self.api_key = api_key or os.getenv("OPENAI_API_KEY", "")
         self.base_url = (base_url or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")).rstrip("/")
+        self.timeout = timeout or int(os.getenv("LLM_TIMEOUT", "120"))
 
     def generate_step(
         self,
@@ -48,7 +52,10 @@ class OpenAIProvider(LLMProvider):
         for m in messages:
             msg_dict = {"role": m.role}
             if m.content is not None:
-                msg_dict["content"] = m.content
+                if isinstance(m.content, (dict, list)):
+                    msg_dict["content"] = json.dumps(m.content)
+                else:
+                    msg_dict["content"] = str(m.content)
             if m.tool_calls:
                 msg_dict["tool_calls"] = [
                     {
@@ -82,7 +89,7 @@ class OpenAIProvider(LLMProvider):
             req.add_header("Authorization", f"Bearer {self.api_key}")
 
         try:
-            with urllib.request.urlopen(req, timeout=30, context=SSL_CONTEXT) as resp:
+            with urllib.request.urlopen(req, timeout=self.timeout, context=SSL_CONTEXT) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
                 choice = body["choices"][0]["message"]
 
@@ -97,6 +104,20 @@ class OpenAIProvider(LLMProvider):
                     ))
 
                 content = choice.get("content")
+                if not tool_calls and content:
+                    match = re.search(r"\{\s*\"name\"\s*:\s*\"([a-zA-Z0-9_-]+)\"\s*,\s*\"(?:parameters|arguments)\"\s*:\s*(\{.*?\})\s*\}", content, re.DOTALL)
+                    if match:
+                        tool_name = match.group(1)
+                        try:
+                            raw_args = json.loads(match.group(2))
+                            tool_calls.append(ToolCall(
+                                id=f"call_{uuid.uuid4().hex[:8]}",
+                                name=tool_name,
+                                arguments=raw_args,
+                            ))
+                        except Exception:
+                            pass
+
                 is_done = len(tool_calls) == 0 and bool(content)
                 return AgentStep(
                     thought=None,

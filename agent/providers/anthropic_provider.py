@@ -30,9 +30,11 @@ class AnthropicProvider(LLMProvider):
         self,
         model_name: str = "claude-3-5-sonnet-20241022",
         api_key: Optional[str] = None,
+        timeout: Optional[int] = None,
     ):
         super().__init__(model_name=model_name)
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
+        self.timeout = timeout or int(os.getenv("LLM_TIMEOUT", "120"))
 
     def generate_step(
         self,
@@ -93,7 +95,7 @@ class AnthropicProvider(LLMProvider):
         req.add_header("anthropic-version", "2023-06-01")
 
         try:
-            with urllib.request.urlopen(req, timeout=30, context=SSL_CONTEXT) as resp:
+            with urllib.request.urlopen(req, timeout=self.timeout, context=SSL_CONTEXT) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
                 stop_reason = body.get("stop_reason")
                 content_blocks = body.get("content", [])

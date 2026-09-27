@@ -5,6 +5,12 @@ from __future__ import annotations
 import argparse
 import os
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from agent.client import MCPClient
 from agent.orchestrator import ProductionFlightAgent
 
@@ -48,6 +54,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="Find me an economy flight from JFK to LHR on 2026-09-28 and book a seat for Dr. Robert McCall (passport: P88776655, email: robert.mccall@equalizer.org).",
         help="Passenger natural language booking request",
     )
+    parser.add_argument(
+        "--max-turns",
+        type=int,
+        default=10,
+        help="Maximum reasoning/tool-execution turns for the agent (default: 10)",
+    )
     return parser
 
 
@@ -64,7 +76,7 @@ def main() -> None:
     )
 
     agent.bootstrap()
-    agent.run(args.prompt)
+    agent.run(args.prompt, max_turns=args.max_turns)
 
 
 if __name__ == "__main__":
