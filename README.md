@@ -126,51 +126,84 @@ This repository adheres to enterprise **Clean Architecture** and **Separation of
 ```
 mcp-aws/
 │
-├── app/                          # 🚀 PRODUCTION MCP SERVER (Runs on AWS ECS Fargate)
+├── src/                          # 🚀 PRODUCTION MCP SERVER (Runs on AWS ECS Fargate)
 │   ├── __init__.py
 │   ├── config.py                 # Pydantic Settings & environment variables
-│   ├── db.py                     # SQLite engine, WAL mode, ACID transactions & seed data
-│   ├── auth.py                   # HTTP Bearer / API-Key authentication middleware
-│   ├── guardrails.py             # RBAC scopes, token-bucket rate limiting, SQL AST validator
-│   ├── tools.py                  # Guarded MCP tool implementations (9 domain tools)
-│   ├── resources.py              # MCP resource URIs & handlers (airports, policies, analytics)
-│   ├── prompts.py                # MCP prompt templates for LLMs (itinerary, disruption)
+│   ├── server.py                 # Starlette / FastMCP streamable HTTP application
+│   ├── errors.py                 # Custom error hierarchies & JSON-RPC error mappers
 │   ├── telemetry.py              # Health check (/health) & Prometheus metrics (/metrics)
-│   └── server.py                 # Starlette / FastMCP streamable HTTP application
+│   ├── db/                       # Database engine & migrations
+│   │   ├── __init__.py
+│   │   ├── session.py            # SQLite engine, WAL mode, ACID transactions & seed data
+│   │   └── migrations/           # Database migration files
+│   ├── middleware/               # Security & Governance interceptors
+│   │   ├── __init__.py
+│   │   ├── auth.py               # HTTP Bearer / API-Key authentication middleware
+│   │   └── rbac.py               # Scopes, token-bucket rate limiting, SQL AST validator
+│   ├── tools/                    # Domain MCP Tools (9 tools)
+│   │   ├── __init__.py
+│   │   ├── search.py             # Flight search, details, and seat availability tools
+│   │   ├── booking.py            # Booking creation, retrieval, cancellation, seat change
+│   │   └── admin.py              # Audit logs & read-only SQL execution tools
+│   ├── resources/                # MCP Resource URIs & Handlers
+│   │   ├── __init__.py
+│   │   └── airport_info.py       # Live airport status, weather, and traffic resources
+│   ├── prompts/                  # MCP Prompt Templates
+│   │   ├── __init__.py
+│   │   └── itinerary_prompts.py  # Flight itinerary & disruption rebooking templates
+│   ├── schemas/                  # Pydantic request/response validation models
+│   ├── services/                 # Internal business logic domain services
+│   └── clients/                  # Upstream GDS & third-party flight API clients
 │
 ├── agent/                        # 🧠 AUTONOMOUS AI AGENT (Client / LLM Orchestrator)
 │   ├── __init__.py               # Public API exports (ProductionFlightAgent, MCPClient, etc.)
 │   ├── __main__.py               # Direct execution: `python3 -m agent` or `python3 agent`
-│   ├── cli.py                    # Command-line interface & argument parser
+│   ├── cli.py                    # Command-line interface, .env loader & argument parser
 │   ├── client.py                 # Low-level JSON-RPC 2.0 MCP HTTP client
 │   ├── models.py                 # Strongly-typed Dataclasses (ToolDefinition, ToolCall, etc.)
 │   ├── safety.py                 # Human-In-The-Loop (HITL) Gate & approval policies
-│   ├── orchestrator.py           # Core ReAct reasoning-acting loop & context manager
+│   ├── orchestrator.py           # Core ReAct reasoning-acting loop & autonomous follow-through
 │   └── providers/                # Strategy Pattern: Pluggable LLM Providers
 │       ├── __init__.py           # Provider factory (`create_provider(...)`)
 │       ├── base.py               # Abstract Base Class (`LLMProvider`)
-│       ├── openai_provider.py    # OpenAI / Azure / OpenAI-compatible (Ollama, vLLM)
+│       ├── openai_provider.py    # OpenAI & OpenAI-compatible (Ollama / llama.cpp / vLLM)
 │       ├── anthropic_provider.py # Anthropic Claude 3.5 Sonnet
 │       └── cognitive_engine.py   # Resilient deterministic engine (zero-key fallback)
 │
+├── deploy/                       # 🚢 CONTAINERIZATION & ORCHESTRATION MANIFESTS
+│   ├── Dockerfile                # Multi-stage production container build (copies only `src/`)
+│   ├── docker-compose.yml        # Local multi-container development environment
+│   └── k8s/                      # Kubernetes deployment specifications
+│       ├── configmap.yaml        # ConfigMap environment settings
+│       └── deployment.yaml       # Deployment & LoadBalancer Service specs
+│
 ├── tests/                        # 🧪 AUTOMATED TEST SUITE (Unit, Integration & E2E)
 │   ├── __init__.py
-│   ├── test_db.py                # Database transactions, constraints & idempotency
-│   ├── test_guardrails.py        # RBAC scopes, token bucket, SQL AST validation
-│   ├── test_tools.py             # Domain tools business logic
-│   ├── test_server.py            # HTTP endpoints (/health, /metrics, /mcp auth)
-│   ├── test_agent.py             # Agent reasoning, tool conversion & HITL gates
-│   └── test_smoke.py             # Fast sanity check
+│   ├── unit/                     # Unit test specifications
+│   │   ├── test_db.py            # Database transactions, constraints & idempotency
+│   │   ├── test_guardrails.py    # RBAC scopes, token bucket, SQL AST validation
+│   │   ├── test_tools.py         # Domain tools business logic
+│   │   └── test_smoke.py         # Fast sanity check
+│   ├── integration/              # Integration & end-to-end tests
+│   │   ├── test_server.py        # HTTP endpoints (/health, /metrics, /mcp auth)
+│   │   └── test_agent.py         # Agent reasoning, tool conversion & HITL gates
+│   └── fixtures/                 # Test data & mocks
+│       └── mock_gds_responses.py # Mock airline inventory responses
 │
 ├── scripts/                      # 🛠️ OPERATIONAL & DEMO SCRIPTS
 │   ├── __init__.py
-│   └── client_demo.py            # 8-step JSON-RPC automated test script
+│   └── client_demo.py            # Automated JSON-RPC test script
+│
+├── client/                       # 🔌 STANDALONE MCP CLIENTS
+│   └── test_client.py            # Standalone connectivity test script
 │
 ├── run_agent.py                  # CLI launcher: `python3 run_agent.py --auto-approve`
 ├── client_demo.py                # Convenience launcher for scripts/client_demo.py
-├── Dockerfile                    # Multi-stage production container build (copies only `app/`)
+├── Dockerfile                    # Multi-stage production container build (copies only `src/`)
 ├── requirements.txt              # Production Python dependencies
-├── .env.example                  # Environment variable reference
+├── pyproject.toml                # Project packaging & metadata configuration
+├── .env.example                  # Environment variable reference template
+├── .env                          # Local environment overrides (gitignored)
 └── README.md                     # Comprehensive architecture & operational guide
 ```
 
@@ -179,7 +212,7 @@ mcp-aws/
 ## 🏛️ Best Practice Guidelines for MCP Repositories
 
 ### 1. Clear Server vs. Client Boundary
-- **`app/`** contains **only** the server-side code deployed to AWS ECS Fargate. The Docker container copies *only* `app/`, ensuring lightweight, minimal container images without test fixtures, developer scripts, or client dependencies.
+- **`src/`** contains **only** the server-side code deployed to AWS ECS Fargate. The Docker container copies *only* `src/`, ensuring lightweight, minimal container images without test fixtures, developer scripts, or client dependencies.
 - **`agent/`** is the autonomous consumer of the MCP server. It connects to the server exclusively over the standardized Model Context Protocol JSON-RPC specification.
 
 ### 2. Hexagonal Architecture & Dependency Inversion (SOLID)
@@ -244,11 +277,11 @@ python3 -m agent.cli --prompt "Find an economy flight from JFK to LHR on 2026-09
 # 1. Activate environment
 source .venv/bin/activate
 
-# 2. Run all unit & integration tests (29 tests)
-python -m unittest discover tests
+# 2. Run all unit & integration tests
+python3 -m unittest discover tests
 
 # 3. Start local development server
-uvicorn app.server:app --host 0.0.0.0 --port 8080 --reload
+uvicorn src.server:app --host 0.0.0.0 --port 8080 --reload
 ```
 
 ---
